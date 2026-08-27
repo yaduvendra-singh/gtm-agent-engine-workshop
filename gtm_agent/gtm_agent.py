@@ -34,6 +34,14 @@ from . import data_service
 from .data_service import REP_IDS
 
 MODEL_NAME = "gpt-4o-mini"
+_PROSPECT_CONTACT_FIELDS = (
+    "prospect_id",
+    "name",
+    "email",
+    "annual_revenue",
+    "enrichment_source",
+    "disqualified",
+)
 
 # ---------------------------------------------------------------------------
 # Tools
@@ -57,8 +65,7 @@ def build_prospect_profile(prospect_id: str) -> dict:
     if rec is None:
         return {"prospect_profile": None, "found": False}
     built = {
-        "prospect_id": prospect_id,
-        **rec,
+        **{key: rec[key] for key in _PROSPECT_CONTACT_FIELDS if key in rec},
         "engagement_history": data_service.fetch_engagement_history(prospect_id),
         "account_details": data_service.fetch_account_details(prospect_id),
         "tech_stack": data_service.fetch_tech_stack(prospect_id),
@@ -130,11 +137,7 @@ def get_prospect(prospect_id: str) -> dict:
         return {"prospect": None, "found": False}
     # Carry the contact fields through, dropping the bulky enrichment blobs the
     # caller can pull from build_prospect_profile instead.
-    contact = {
-        "prospect_id": prospect_id,
-        **{k: v for k, v in record.items()
-           if k not in ("engagement_history", "account_details", "tech_stack")},
-    }
+    contact = {key: record[key] for key in _PROSPECT_CONTACT_FIELDS if key in record}
     return {"prospect": contact, "found": True}
 
 
