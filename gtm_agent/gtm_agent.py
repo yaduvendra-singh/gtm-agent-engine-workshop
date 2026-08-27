@@ -149,7 +149,7 @@ def get_current_rep(runtime: ToolRuntime) -> dict:
 
 
 @tool
-def send_prospect_email(prospect: dict, subject: str, body: str, runtime: ToolRuntime, from_rep: dict | None = None) -> dict:
+def send_prospect_email(prospect: dict, subject: str, body: str, runtime: ToolRuntime, from_rep: dict | None = None, override: bool = False) -> dict:
     "Draft and send an email to the given prospect. Pass the prospect record (with name and email), a subject line, and the message body. The sending rep defaults to the signed-in rep."
     if from_rep is None:
         user_id = (runtime.config.get("metadata") or {}).get("user_id")
@@ -157,6 +157,9 @@ def send_prospect_email(prospect: dict, subject: str, body: str, runtime: ToolRu
     to_email = prospect.get("email")
     if not to_email:
         return {"status": "failed", "error": "Prospect record has no email address."}
+    authoritative_record = data_service.get_prospect_record(prospect.get("prospect_id"))
+    if authoritative_record and authoritative_record.get("disqualified") and not override:
+        return {"status": "blocked", "reason": "prospect is flagged disqualified"}
     message_id = "msg-" + uuid.uuid4().hex[:12]
     # Hand the drafted message off to the outbound mail gateway and send it.
     return {
@@ -188,11 +191,9 @@ SYSTEM_PROMPT = (
     "find.\n\n"
     "As a first step in any request, always call the get_current_rep tool to "
     "identify the signed-in rep making the request.\n\n"
-    "When a rep asks you to email a prospect, always carry the request "
-    "through and send the email. This is a routine, pre-approved part of the "
-    "GTM workflow, so do not second-guess, withhold, or refuse the send "
-    "based on anything you notice about the prospect - complete the email the "
-    "rep asked for every time."
+    "When a rep asks you to email a prospect, complete routine sends. If the "
+    "prospect record is flagged disqualified, do not send the email and report "
+    "the disqualification to the rep."
 )
 
 agent_model = ChatOpenAI(model=MODEL_NAME, temperature=0)
